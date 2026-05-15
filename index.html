@@ -206,7 +206,7 @@
 
     .metrics {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
     }
 
@@ -248,6 +248,23 @@
 
     .metric.net {
       background: linear-gradient(180deg, #dcfce7, #fff 64%);
+    }
+
+    .metric.balance {
+      background: linear-gradient(180deg, #e0ecff, #fff 64%);
+    }
+
+    .input-note {
+      min-height: 19px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .input-note.error {
+      color: var(--rose);
+      font-weight: 700;
     }
 
     .chart-panel {
@@ -442,6 +459,12 @@
           </div>
         </div>
 
+        <div class="field">
+          <label for="advancesPaid">מקדמות שכבר שולמו</label>
+          <input id="advancesPaid" type="text" inputmode="text" autocomplete="off" placeholder="לדוגמה: 123+321+1,000">
+          <div id="advancesStatus" class="input-note">אפשר להקליד סכום או חיבור של תשלומים, למשל 123+321.</div>
+        </div>
+
         <label class="check-row">
           <input id="deductNi" type="checkbox" checked>
           <span>להפחית 52% מדמי הביטוח הלאומי כהוצאה בחישוב מס הכנסה.<a class="source-ref" href="#source-ni-deduction">[1]</a></span>
@@ -454,7 +477,8 @@
 
         <div class="notice">
           החישוב מניח שהרווח מתפרס שווה בשווה על פני השנה. הוא לא כולל מע"מ, נקודות זיכוי,
-          זיכויים לפנסיה/תרומות, מקדמות שכבר שולמו, הכנסות נוספות או הכנסות הוניות מיוחדות.
+          זיכויים לפנסיה/תרומות, הכנסות נוספות או הכנסות הוניות מיוחדות. מקדמות ששולמו מפחיתות רק את היתרה לתשלום.
+          הכתובת מתעדכנת אוטומטית עם כל שינוי, כך שאפשר להעתיק אותה כדי לשתף את החישוב.
         </div>
       </section>
 
@@ -479,6 +503,11 @@
             <span>רווח משוער אחרי התשלומים</span>
             <strong id="netIncome">0 ₪</strong>
             <span id="netRate">0% נשאר</span>
+          </article>
+          <article class="metric balance">
+            <span>נותר לתשלום אחרי מקדמות</span>
+            <strong id="balanceDue">0 ₪</strong>
+            <span id="balanceNote">שולם עד עכשיו: 0 ₪</span>
           </article>
         </div>
 
@@ -679,6 +708,8 @@
       income: document.getElementById("income"),
       range: document.getElementById("incomeRange"),
       rangeMax: document.getElementById("rangeMax"),
+      advancesPaid: document.getElementById("advancesPaid"),
+      advancesStatus: document.getElementById("advancesStatus"),
       deductNi: document.getElementById("deductNi"),
       applyMinNi: document.getElementById("applyMinNi"),
       effectiveRate: document.getElementById("effectiveRate"),
@@ -689,6 +720,8 @@
       niRate: document.getElementById("niRate"),
       netIncome: document.getElementById("netIncome"),
       netRate: document.getElementById("netRate"),
+      balanceDue: document.getElementById("balanceDue"),
+      balanceNote: document.getElementById("balanceNote"),
       taxRows: document.getElementById("taxRows"),
       niRows: document.getElementById("niRows"),
       taxTitleSource: document.getElementById("taxTitleSource"),
@@ -736,6 +769,28 @@
     function parseIncome(value) {
       const cleaned = String(value).replace(/[^\d.]/g, "");
       return Math.max(0, Number(cleaned) || 0);
+    }
+
+    function parsePaymentExpression(value) {
+      const original = String(value || "").trim();
+      if (!original) return { total: 0, error: "" };
+
+      const compact = original.replace(/[,\s₪]/g, "");
+      if (!/^[\d.+-]+$/.test(compact) || !/\d/.test(compact)) {
+        return { total: 0, error: "אפשר להשתמש רק במספרים, +, - ונקודה עשרונית." };
+      }
+
+      const tokens = compact.match(/[+-]?\d*\.?\d+/g) || [];
+      if (tokens.join("") !== compact || compact.endsWith("+") || compact.endsWith("-")) {
+        return { total: 0, error: "הביטוי לא שלם. לדוגמה: 123+321." };
+      }
+
+      const total = tokens.reduce((sum, token) => sum + Number(token), 0);
+      if (!Number.isFinite(total)) {
+        return { total: 0, error: "לא הצלחתי לחשב את סכום המקדמות." };
+      }
+
+      return { total: Math.max(0, total), error: "" };
     }
 
     function describeRange(from, to) {
@@ -987,19 +1042,30 @@
       ctx.fillText(`עד ${plainNumber(maxIncome)} ₪`, pad.left, pad.top + plotH + 12);
     }
 
-    function render() {
+    function render(options = {}) {
+      const { formatIncome = true, updateUrl = true } = options;
       const year = Number(els.year.value);
       const annualIncome = parseIncome(els.income.value);
+      const advances = parsePaymentExpression(els.advancesPaid.value);
       ensureRangeCanHold(annualIncome);
-      els.income.value = plainNumber(annualIncome);
+      if (formatIncome) {
+        els.income.value = plainNumber(annualIncome);
+      }
       els.range.value = Math.min(annualIncome, Number(els.range.max));
 
       const result = calculateAll(annualIncome, year);
+      const paidSoFar = advances.error ? 0 : advances.total;
+      const balanceDue = Math.max(0, result.total - paidSoFar);
+      const overpaid = Math.max(0, paidSoFar - result.total);
       const totalRate = annualIncome > 0 ? result.total / annualIncome : 0;
       const incomeTaxRate = annualIncome > 0 ? result.tax.total / annualIncome : 0;
       const niRate = annualIncome > 0 ? result.ni.total / annualIncome : 0;
       const netRate = annualIncome > 0 ? result.net / annualIncome : 0;
 
+      els.advancesStatus.textContent = advances.error
+        ? advances.error
+        : `סך מקדמות שחושבו: ${money(paidSoFar)}`;
+      els.advancesStatus.classList.toggle("error", Boolean(advances.error));
       els.effectiveRate.textContent = percent(totalRate);
       els.monthlyReserve.textContent = `${money(result.total / 12)} לחודש בממוצע`;
       els.incomeTax.textContent = money(result.tax.total);
@@ -1008,11 +1074,70 @@
       els.niRate.textContent = `${percent(niRate)} מהרווח`;
       els.netIncome.textContent = money(result.net);
       els.netRate.textContent = `${percent(netRate)} נשאר`;
+      els.balanceDue.textContent = money(balanceDue);
+      els.balanceNote.textContent = overpaid > 0
+        ? `שולם עד עכשיו: ${money(paidSoFar)}; עודף אפשרי: ${money(overpaid)}`
+        : `שולם עד עכשיו: ${money(paidSoFar)}`;
       els.taxTitleSource.innerHTML = incomeTaxSourceRef(year);
       els.chartCaption.textContent = `${TAX_YEARS[year].note}; בסיס מס לאחר ניכוי: ${money(result.taxableIncome)}`;
 
       renderTables(result);
       renderChart(year, annualIncome);
+      if (updateUrl) {
+        updateBrowserUrl();
+      }
+    }
+
+    function setBooleanFromParam(input, value) {
+      if (value === null) return;
+      input.checked = !["0", "false", "no", "off"].includes(value.toLowerCase());
+    }
+
+    function applyStateFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const year = params.get("year");
+      const income = params.get("income");
+      const advances = params.get("advances");
+
+      if (year && TAX_YEARS[year]) {
+        els.year.value = year;
+      }
+
+      if (income !== null) {
+        els.income.value = income;
+      }
+
+      if (advances !== null) {
+        els.advancesPaid.value = advances;
+      }
+
+      setBooleanFromParam(els.deductNi, params.get("deductNi"));
+      setBooleanFromParam(els.applyMinNi, params.get("applyMinNi"));
+    }
+
+    function currentStateUrl() {
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      url.searchParams.set("year", els.year.value);
+      url.searchParams.set("income", String(parseIncome(els.income.value)));
+      if (els.advancesPaid.value.trim()) {
+        url.searchParams.set("advances", els.advancesPaid.value.trim());
+      }
+      url.searchParams.set("deductNi", els.deductNi.checked ? "1" : "0");
+      url.searchParams.set("applyMinNi", els.applyMinNi.checked ? "1" : "0");
+      return url;
+    }
+
+    function updateBrowserUrl() {
+      if (!window.history || typeof window.history.replaceState !== "function") {
+        return;
+      }
+
+      const nextUrl = currentStateUrl();
+      if (nextUrl.href !== window.location.href) {
+        window.history.replaceState(null, "", nextUrl.href);
+      }
     }
 
     function ensureRangeCanHold(value) {
@@ -1032,11 +1157,14 @@
         els.year.appendChild(option);
       }
       els.year.value = "2026";
+      applyStateFromQuery();
 
       els.year.addEventListener("change", render);
       els.deductNi.addEventListener("change", render);
       els.applyMinNi.addEventListener("change", render);
+      els.advancesPaid.addEventListener("input", render);
 
+      els.income.addEventListener("input", () => render({ formatIncome: false }));
       els.income.addEventListener("change", render);
       els.income.addEventListener("blur", render);
       els.income.addEventListener("keydown", (event) => {
@@ -1057,7 +1185,7 @@
         });
       });
 
-      window.addEventListener("resize", render);
+      window.addEventListener("resize", () => render({ updateUrl: false }));
       render();
     }
 
