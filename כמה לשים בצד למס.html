@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מחשבון מס לעצמאי</title>
+  <style>
+    :root {
+      --bg: #f7f8f5;
+      --panel: #ffffff;
+      --ink: #17211d;
+      --muted: #66736d;
+      --line: #dce3df;
+      --teal: #0f766e;
+      --teal-soft: #d8f3ee;
+      --amber: #b7791f;
+      --amber-soft: #fff2cf;
+      --rose: #be3455;
+      --rose-soft: #ffe2e9;
+      --blue: #2563eb;
+      --green: #16814a;
+      --shadow: 0 18px 50px rgba(19, 31, 28, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(247, 248, 245, 0) 320px),
+        var(--bg);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 40px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 22px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--teal);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 390px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel,
+    .metric,
+    .table-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .controls {
+      position: sticky;
+      top: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #2f3c37;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    select,
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid #cbd5d0;
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 18px;
+      font-family: inherit;
+    }
+
+    select:focus,
+    input:focus {
+      outline: 3px solid rgba(15, 118, 110, 0.18);
+      border-color: var(--teal);
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 14px 0 6px;
+      accent-color: var(--teal);
+    }
+
+    .range-row,
+    .check-row,
+    .mini-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .check-row {
+      justify-content: flex-start;
+      color: #34423d;
+      line-height: 1.55;
+      margin: 10px 0;
+    }
+
+    .check-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--teal);
+      flex: 0 0 auto;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      min-height: 40px;
+      border: 1px solid #cbd5d0;
+      border-radius: 8px;
+      background: #fff;
+      color: #26332f;
+      font: 700 14px/1.2 Arial, sans-serif;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .notice {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 8px;
+      background: #f1f5f9;
+      color: #44514c;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .results {
+      display: grid;
+      gap: 18px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 16px;
+      min-height: 138px;
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(24px, 3.2vw, 38px);
+      line-height: 1.05;
+      direction: ltr;
+      text-align: right;
+      letter-spacing: 0;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .metric.total {
+      border-color: rgba(15, 118, 110, 0.45);
+      background: linear-gradient(180deg, var(--teal-soft), #fff 64%);
+    }
+
+    .metric.tax {
+      background: linear-gradient(180deg, var(--rose-soft), #fff 64%);
+    }
+
+    .metric.ni {
+      background: linear-gradient(180deg, var(--amber-soft), #fff 64%);
+    }
+
+    .metric.net {
+      background: linear-gradient(180deg, #dcfce7, #fff 64%);
+    }
+
+    .chart-panel {
+      padding: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .section-title small {
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 300px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfb;
+    }
+
+    .tables {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .table-panel {
+      overflow: hidden;
+    }
+
+    .table-panel h2 {
+      padding: 16px 16px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 11px 14px;
+      border-top: 1px solid var(--line);
+      text-align: right;
+      vertical-align: top;
+      line-height: 1.45;
+    }
+
+    th {
+      background: #f8faf8;
+      color: #34423d;
+      font-size: 12px;
+    }
+
+    td.amount {
+      direction: ltr;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .sources {
+      display: grid;
+      gap: 10px;
+      padding: 16px 18px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .sources a {
+      color: var(--blue);
+    }
+
+    .source-ref,
+    .source-note {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .source-ref {
+      margin-inline-start: 3px;
+      font-size: 0.75em;
+      vertical-align: super;
+    }
+
+    .source-ref:hover,
+    .source-note:hover {
+      text-decoration: underline;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 980px) {
+      header,
+      .layout,
+      .tables {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        position: static;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      main {
+        width: min(100% - 20px, 1180px);
+        padding-top: 22px;
+      }
+
+      .metrics,
+      .presets {
+        grid-template-columns: 1fr;
+      }
+
+      .metric {
+        min-height: 120px;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        font-size: 13px;
+      }
+
+      canvas {
+        height: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>כמה לשים בצד למס?</h1>
+        <p class="intro">
+          מחשבון אינטראקטיבי לרווח שנתי של עצמאי/עוסק מורשה בישראל. בוחרים שנה ורווח,
+          ומקבלים את מס ההכנסה, דמי הביטוח הלאומי ובריאות, ואת האחוז הממוצע מתוך הרווח.
+        </p>
+      </div>
+      <div class="badge">שנים 2020-2026</div>
+    </header>
+
+    <div class="layout">
+      <section class="panel controls" aria-label="הגדרות חישוב">
+        <div class="field">
+          <label for="year">שנת מס</label>
+          <select id="year"></select>
+        </div>
+
+        <div class="field">
+          <label for="income">רווח שנתי חייב לפני מס</label>
+          <input id="income" type="text" inputmode="numeric" autocomplete="off" value="240,000">
+          <input id="incomeRange" type="range" min="0" max="2000000" step="1000" value="240000">
+          <div class="range-row">
+            <span>0 ₪</span>
+            <span id="rangeMax">2,000,000 ₪</span>
+          </div>
+          <div class="presets" aria-label="סכומים נפוצים">
+            <button type="button" data-preset="120000">120 אלף</button>
+            <button type="button" data-preset="240000">240 אלף</button>
+            <button type="button" data-preset="360000">360 אלף</button>
+            <button type="button" data-preset="600000">600 אלף</button>
+            <button type="button" data-preset="900000">900 אלף</button>
+            <button type="button" data-preset="1500000">1.5 מיליון</button>
+          </div>
+        </div>
+
+        <label class="check-row">
+          <input id="deductNi" type="checkbox" checked>
+          <span>להפחית 52% מדמי הביטוח הלאומי כהוצאה בחישוב מס הכנסה.<a class="source-ref" href="#source-ni-deduction">[1]</a></span>
+        </label>
+
+        <label class="check-row">
+          <input id="applyMinNi" type="checkbox" checked>
+          <span>להחיל הכנסה מזערית לביטוח לאומי כשהרווח החודשי נמוך מהמינימום.<a class="source-ref" href="#source-ni-thresholds">[5]</a></span>
+        </label>
+
+        <div class="notice">
+          החישוב מניח שהרווח מתפרס שווה בשווה על פני השנה. הוא לא כולל מע"מ, נקודות זיכוי,
+          זיכויים לפנסיה/תרומות, מקדמות שכבר שולמו, הכנסות נוספות או הכנסות הוניות מיוחדות.
+        </div>
+      </section>
+
+      <section class="results" aria-live="polite">
+        <div class="metrics">
+          <article class="metric total">
+            <span>האחוז הממוצע לשים בצד</span>
+            <strong id="effectiveRate">0%</strong>
+            <span id="monthlyReserve">0 ₪ לחודש בממוצע</span>
+          </article>
+          <article class="metric tax">
+            <span>מס הכנסה שנתי</span>
+            <strong id="incomeTax">0 ₪</strong>
+            <span id="taxRate">0% מהרווח</span>
+          </article>
+          <article class="metric ni">
+            <span>ביטוח לאומי ובריאות</span>
+            <strong id="nationalInsurance">0 ₪</strong>
+            <span id="niRate">0% מהרווח</span>
+          </article>
+          <article class="metric net">
+            <span>רווח משוער אחרי התשלומים</span>
+            <strong id="netIncome">0 ₪</strong>
+            <span id="netRate">0% נשאר</span>
+          </article>
+        </div>
+
+        <section class="panel chart-panel">
+          <div class="section-title">
+            <h2>גרף שיעור ממוצע</h2>
+            <small id="chartCaption">מס הכנסה + ביטוח לאומי מתוך הרווח השנתי</small>
+          </div>
+          <canvas id="rateChart" width="900" height="300"></canvas>
+        </section>
+
+        <div class="tables">
+          <section class="table-panel">
+            <h2>פירוט מס הכנסה <span id="taxTitleSource"></span></h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>מדרגה</th>
+                  <th>שיעור</th>
+                  <th>מס</th>
+                </tr>
+              </thead>
+              <tbody id="taxRows"></tbody>
+            </table>
+          </section>
+
+          <section class="table-panel">
+            <h2>פירוט ביטוח לאומי</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>רכיב</th>
+                  <th>בסיס</th>
+                  <th>תשלום</th>
+                </tr>
+              </thead>
+              <tbody id="niRows"></tbody>
+            </table>
+          </section>
+        </div>
+
+        <section class="table-panel">
+          <h2>מקורות והנחות נתונים</h2>
+          <div class="sources">
+            <div id="source-ni-deduction">
+              <a class="source-note" href="#deductNi">[1]</a>
+              ניכוי 52%: לפי ביטוח לאומי, בחישוב הכנסה לעצמאי מופחתים 52% מסכום דמי הביטוח הלאומי שחייב המבוטח, לא כולל דמי ביטוח בריאות; ראו
+              <a href="https://www.btl.gov.il/insurance/national%20insurance/type_list/self_employed/pages/hishov.dmey.bituach.aspx" target="_blank" rel="noreferrer">דוגמה לחישוב דמי ביטוח לעובד עצמאי</a>.
+            </div>
+            <div id="source-tax-history">
+              <a class="source-note" href="#taxTitleSource">[2]</a>
+              מס הכנסה: מדרגות 2020-2025 מתוך
+              <a href="https://www.kolzchut.org.il/he/מדרגות_מס_הכנסה_-_נתוני_עבר" target="_blank" rel="noreferrer">כל-זכות, נתוני עבר</a>.
+            </div>
+            <div id="source-tax-2026">
+              <a class="source-note" href="#taxTitleSource">[3]</a>
+              2026 לפי
+              <a href="https://www.gov.il/BlobFolder/dynamiccollectorresultitem/employers-info-300326-1/he/IncomeTax_IncomeTaxEmployersInfo_employers-info-300326-1.pdf" target="_blank" rel="noreferrer">הודעת רשות המסים על ריווח מדרגות המס</a>
+              ולוח העזר לשנת 2026.
+            </div>
+            <div id="source-ni-rates">
+              <a class="source-note" href="#niRows">[4]</a>
+              ביטוח לאומי: תקרות ושיעורים מתוך
+              <a href="https://www.btl.gov.il/Mediniyut/GeneralData/rates_1954_2007/שיעור%20דמי%20הביטוח%20כאחוז%20מההכנסה/Pages/עצמאי%20בגיל%20הביטוח.aspx" target="_blank" rel="noreferrer">טבלת שיעורי דמי הביטוח לעצמאי</a>,
+              ועמוד
+              <a href="https://www.btl.gov.il/insurance/national%20insurance/type_list/self_employed/pages/rates.aspx" target="_blank" rel="noreferrer">שיעורי דמי הביטוח - עובד עצמאי</a>.
+            </div>
+            <div id="source-ni-thresholds">
+              <a class="source-note" href="#niRows">[5]</a>
+              ביטוח לאומי: תקרות ושיעורים מתוך
+              <a href="https://www.btl.gov.il/Mediniyut/GeneralData/rates_1954_2007/Hachnasa/Pages/ovedAtzmaii.aspx" target="_blank" rel="noreferrer">טבלת הכנסה מזערית ומרבית לעצמאי</a>.
+            </div>
+            <div>
+              מס יסף מחושב כתוספת 3% על החלק שמעל סף מס היסף בכל שנה. ההכנסות כאן מטופלות כהכנסה מיגיעה אישית/עסק, לא כהכנסה הונית.
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const TAX_YEARS = {
+      2020: {
+        brackets: [
+          { upTo: 75960, rate: 0.10 },
+          { upTo: 108960, rate: 0.14 },
+          { upTo: 174960, rate: 0.20 },
+          { upTo: 243120, rate: 0.31 },
+          { upTo: 505920, rate: 0.35 },
+          { upTo: 651600, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 651600,
+        surtaxRate: 0.03,
+        note: "מדרגות כל-זכות לשנת 2020"
+      },
+      2021: {
+        brackets: [
+          { upTo: 75480, rate: 0.10 },
+          { upTo: 108360, rate: 0.14 },
+          { upTo: 173880, rate: 0.20 },
+          { upTo: 241680, rate: 0.31 },
+          { upTo: 502920, rate: 0.35 },
+          { upTo: 647640, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 647640,
+        surtaxRate: 0.03,
+        note: "מדרגות כל-זכות לשנת 2021"
+      },
+      2022: {
+        brackets: [
+          { upTo: 77400, rate: 0.10 },
+          { upTo: 110880, rate: 0.14 },
+          { upTo: 178080, rate: 0.20 },
+          { upTo: 247440, rate: 0.31 },
+          { upTo: 514920, rate: 0.35 },
+          { upTo: 663240, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 663240,
+        surtaxRate: 0.03,
+        note: "מדרגות כל-זכות לשנת 2022"
+      },
+      2023: {
+        brackets: [
+          { upTo: 81480, rate: 0.10 },
+          { upTo: 116760, rate: 0.14 },
+          { upTo: 187440, rate: 0.20 },
+          { upTo: 260520, rate: 0.31 },
+          { upTo: 542160, rate: 0.35 },
+          { upTo: 698280, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 698280,
+        surtaxRate: 0.03,
+        note: "מדרגות כל-זכות לשנת 2023"
+      },
+      2024: {
+        brackets: [
+          { upTo: 84120, rate: 0.10 },
+          { upTo: 120720, rate: 0.14 },
+          { upTo: 193800, rate: 0.20 },
+          { upTo: 269280, rate: 0.31 },
+          { upTo: 560280, rate: 0.35 },
+          { upTo: 721560, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 721560,
+        surtaxRate: 0.03,
+        note: "מדרגות כל-זכות לשנת 2024"
+      },
+      2025: {
+        brackets: [
+          { upTo: 84120, rate: 0.10 },
+          { upTo: 120720, rate: 0.14 },
+          { upTo: 193800, rate: 0.20 },
+          { upTo: 269280, rate: 0.31 },
+          { upTo: 560280, rate: 0.35 },
+          { upTo: 721560, rate: 0.47 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 721560,
+        surtaxRate: 0.03,
+        note: "מדרגות 2025 זהות ל-2024 להכנסה מיגיעה אישית"
+      },
+      2026: {
+        brackets: [
+          { upTo: 84120, rate: 0.10 },
+          { upTo: 120720, rate: 0.14 },
+          { upTo: 228000, rate: 0.20 },
+          { upTo: 301200, rate: 0.31 },
+          { upTo: 560280, rate: 0.35 },
+          { upTo: Infinity, rate: 0.47 }
+        ],
+        surtaxThreshold: 721560,
+        surtaxRate: 0.03,
+        note: "מדרגות 2026 לאחר ריווח מדרגות המס"
+      }
+    };
+
+    const NI_YEARS = {
+      2020: niYear(2638, 6331, 44020, [{ months: 12, nl: 0.0287, hl: 0.0310, nh: 0.1283, hh: 0.0500 }]),
+      2021: niYear(2638, 6331, 44020, [{ months: 12, nl: 0.0287, hl: 0.0310, nh: 0.1283, hh: 0.0500 }]),
+      2022: niYear(2638, 6331, 45075, [{ months: 12, nl: 0.0287, hl: 0.0310, nh: 0.1283, hh: 0.0500 }]),
+      2023: niYear(2968, 7122, 47465, [{ months: 12, nl: 0.0287, hl: 0.0310, nh: 0.1283, hh: 0.0500 }]),
+      2024: niYear(3134, 7522, 49030, [{ months: 12, nl: 0.0287, hl: 0.0310, nh: 0.1283, hh: 0.0500 }]),
+      2025: niYear(3134, 7522, 50695, [
+        { months: 1, nl: 0.0447, hl: 0.0323, nh: 0.1283, hh: 0.0516 },
+        { months: 11, nl: 0.0447, hl: 0.0323, nh: 0.1283, hh: 0.0517 }
+      ]),
+      2026: niYear(3442, 7703, 51910, [{ months: 12, nl: 0.0447, hl: 0.0323, nh: 0.1283, hh: 0.0517 }])
+    };
+
+    const els = {
+      year: document.getElementById("year"),
+      income: document.getElementById("income"),
+      range: document.getElementById("incomeRange"),
+      rangeMax: document.getElementById("rangeMax"),
+      deductNi: document.getElementById("deductNi"),
+      applyMinNi: document.getElementById("applyMinNi"),
+      effectiveRate: document.getElementById("effectiveRate"),
+      monthlyReserve: document.getElementById("monthlyReserve"),
+      incomeTax: document.getElementById("incomeTax"),
+      taxRate: document.getElementById("taxRate"),
+      nationalInsurance: document.getElementById("nationalInsurance"),
+      niRate: document.getElementById("niRate"),
+      netIncome: document.getElementById("netIncome"),
+      netRate: document.getElementById("netRate"),
+      taxRows: document.getElementById("taxRows"),
+      niRows: document.getElementById("niRows"),
+      taxTitleSource: document.getElementById("taxTitleSource"),
+      chart: document.getElementById("rateChart"),
+      chartCaption: document.getElementById("chartCaption")
+    };
+
+    const currency = new Intl.NumberFormat("he-IL", {
+      style: "currency",
+      currency: "ILS",
+      maximumFractionDigits: 0
+    });
+
+    const numberFormat = new Intl.NumberFormat("he-IL", {
+      maximumFractionDigits: 0
+    });
+
+    function niYear(minMonthly, lowCeilingMonthly, maxMonthly, periods) {
+      return { minMonthly, lowCeilingMonthly, maxMonthly, periods };
+    }
+
+    function money(value) {
+      return currency.format(Math.round(value || 0));
+    }
+
+    function plainNumber(value) {
+      return numberFormat.format(Math.round(value || 0));
+    }
+
+    function percent(value, digits = 1) {
+      if (!Number.isFinite(value)) return "0%";
+      return `${(value * 100).toFixed(digits)}%`;
+    }
+
+    function sourceRef(id, number) {
+      return `<a class="source-ref" href="#${id}">[${number}]</a>`;
+    }
+
+    function incomeTaxSourceRef(year) {
+      return year === 2026
+        ? sourceRef("source-tax-2026", 3)
+        : sourceRef("source-tax-history", 2);
+    }
+
+    function parseIncome(value) {
+      const cleaned = String(value).replace(/[^\d.]/g, "");
+      return Math.max(0, Number(cleaned) || 0);
+    }
+
+    function describeRange(from, to) {
+      if (!Number.isFinite(to)) return `מעל ${plainNumber(from)} ₪`;
+      if (from === 0) return `עד ${plainNumber(to)} ₪`;
+      return `${plainNumber(from + 1)}-${plainNumber(to)} ₪`;
+    }
+
+    function calculateProgressiveTax(amount, yearData) {
+      let previous = 0;
+      let total = 0;
+      const rows = [];
+
+      for (const bracket of yearData.brackets) {
+        const upper = bracket.upTo;
+        const taxable = Math.max(0, Math.min(amount, upper) - previous);
+        if (taxable > 0) {
+          const tax = taxable * bracket.rate;
+          rows.push({
+            label: describeRange(previous, upper),
+            rate: bracket.rate,
+            base: taxable,
+            tax
+          });
+          total += tax;
+        }
+        previous = upper;
+        if (amount <= upper) break;
+      }
+
+      const surtaxBase = Math.max(0, amount - yearData.surtaxThreshold);
+      const surtax = surtaxBase * yearData.surtaxRate;
+      if (surtaxBase > 0) {
+        rows.push({
+          label: `מס יסף מעל ${plainNumber(yearData.surtaxThreshold)} ₪`,
+          rate: yearData.surtaxRate,
+          base: surtaxBase,
+          tax: surtax
+        });
+      }
+
+      return { total: total + surtax, rows, surtax };
+    }
+
+    function calculateNationalInsurance(annualIncome, yearData, applyMinimum) {
+      const monthlyProfit = annualIncome / 12;
+      const monthlyBase = applyMinimum && annualIncome > 0
+        ? Math.max(monthlyProfit, yearData.minMonthly)
+        : monthlyProfit;
+
+      let national = 0;
+      let health = 0;
+      const rows = [];
+
+      for (const period of yearData.periods) {
+        const cappedMonthly = Math.min(monthlyBase, yearData.maxMonthly);
+        const lowBase = Math.min(cappedMonthly, yearData.lowCeilingMonthly);
+        const highBase = Math.max(0, cappedMonthly - yearData.lowCeilingMonthly);
+        const periodNational = period.months * (lowBase * period.nl + highBase * period.nh);
+        const periodHealth = period.months * (lowBase * period.hl + highBase * period.hh);
+        national += periodNational;
+        health += periodHealth;
+
+        rows.push({
+          label: period.months === 12 ? "דמי ביטוח לאומי" : `דמי ביטוח לאומי (${period.months} חודשים)`,
+          base: `${plainNumber(lowBase)} ₪ בשיעור מופחת, ${plainNumber(highBase)} ₪ בשיעור רגיל`,
+          amount: periodNational,
+          sourceId: "source-ni-rates",
+          sourceNumber: 4
+        });
+        rows.push({
+          label: period.months === 12 ? "דמי ביטוח בריאות" : `דמי ביטוח בריאות (${period.months} חודשים)`,
+          base: `${plainNumber(lowBase)} ₪ בשיעור מופחת, ${plainNumber(highBase)} ₪ בשיעור רגיל`,
+          amount: periodHealth,
+          sourceId: "source-ni-rates",
+          sourceNumber: 4
+        });
+      }
+
+      if (monthlyProfit > yearData.maxMonthly) {
+        const exemptAnnual = (monthlyProfit - yearData.maxMonthly) * 12;
+        rows.push({
+          label: "מעל תקרת ביטוח לאומי",
+          base: `${plainNumber(exemptAnnual)} ₪ לשנה`,
+          amount: 0,
+          sourceId: "source-ni-thresholds",
+          sourceNumber: 5
+        });
+      }
+
+      if (applyMinimum && annualIncome > 0 && monthlyProfit < yearData.minMonthly) {
+        rows.push({
+          label: "התאמה להכנסה מזערית",
+          base: `${plainNumber(yearData.minMonthly)} ₪ לחודש`,
+          amount: 0,
+          sourceId: "source-ni-thresholds",
+          sourceNumber: 5
+        });
+      }
+
+      return {
+        national,
+        health,
+        total: national + health,
+        rows,
+        monthlyBase
+      };
+    }
+
+    function calculateAll(annualIncome, year) {
+      const ni = calculateNationalInsurance(annualIncome, NI_YEARS[year], els.applyMinNi.checked);
+      const deduction = els.deductNi.checked ? ni.national * 0.52 : 0;
+      const taxableIncome = Math.max(0, annualIncome - deduction);
+      const tax = calculateProgressiveTax(taxableIncome, TAX_YEARS[year]);
+      const total = tax.total + ni.total;
+      const net = Math.max(0, annualIncome - total);
+
+      return { ni, deduction, taxableIncome, tax, total, net };
+    }
+
+    function renderTables(result) {
+      els.taxRows.innerHTML = "";
+      if (result.deduction > 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>הפחתה למס הכנסה: 52% מדמי ביטוח לאומי ${sourceRef("source-ni-deduction", 1)}</td>
+          <td>בסיס מס: ${money(result.taxableIncome)}</td>
+          <td class="amount">-${money(result.deduction)}</td>
+        `;
+        els.taxRows.appendChild(tr);
+      }
+
+      if (result.tax.rows.length === 0) {
+        els.taxRows.innerHTML += `<tr><td colspan="3" class="empty">אין מס הכנסה ברווח 0 ₪.</td></tr>`;
+      } else {
+        for (const row of result.tax.rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row.label}<br><small>${money(row.base)} חייב במדרגה</small></td>
+            <td>${percent(row.rate, 0)}</td>
+            <td class="amount">${money(row.tax)}</td>
+          `;
+          els.taxRows.appendChild(tr);
+        }
+      }
+
+      els.niRows.innerHTML = "";
+      if (result.ni.rows.length === 0) {
+        els.niRows.innerHTML = `<tr><td colspan="3" class="empty">אין דמי ביטוח ברווח 0 ₪.</td></tr>`;
+      } else {
+        for (const row of result.ni.rows) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row.label} ${sourceRef(row.sourceId, row.sourceNumber)}</td>
+            <td>${row.base}</td>
+            <td class="amount">${money(row.amount)}</td>
+          `;
+          els.niRows.appendChild(tr);
+        }
+      }
+    }
+
+    function renderChart(year, annualIncome) {
+      const canvas = els.chart;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+
+      const ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+
+      const width = rect.width;
+      const height = rect.height;
+      const pad = { top: 22, right: 44, bottom: 42, left: 18 };
+      const plotW = width - pad.right - pad.left;
+      const plotH = height - pad.top - pad.bottom;
+      const maxIncome = Math.max(Number(els.range.max), annualIncome, 1);
+      const samples = 90;
+      const points = [];
+      let maxRate = 0.05;
+
+      for (let i = 0; i <= samples; i += 1) {
+        const income = (maxIncome * i) / samples;
+        const result = calculateAll(income, year);
+        const rate = income > 0 ? result.total / income : 0;
+        maxRate = Math.max(maxRate, rate);
+        points.push({ income, rate });
+      }
+
+      maxRate = Math.min(0.65, Math.ceil(maxRate * 20) / 20);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fbfcfb";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "#dce3df";
+      ctx.lineWidth = 1;
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#66736d";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+
+      for (let i = 0; i <= 4; i += 1) {
+        const y = pad.top + plotH - (plotH * i) / 4;
+        const rate = (maxRate * i) / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+        ctx.fillText(percent(rate, 0), width - 8, y);
+      }
+
+      ctx.strokeStyle = "#0f766e";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = pad.left + (point.income / maxIncome) * plotW;
+        const y = pad.top + plotH - (point.rate / maxRate) * plotH;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      const current = calculateAll(annualIncome, year);
+      const currentRate = annualIncome > 0 ? current.total / annualIncome : 0;
+      const x = pad.left + (annualIncome / maxIncome) * plotW;
+      const y = pad.top + plotH - (currentRate / maxRate) * plotH;
+
+      ctx.strokeStyle = "#be3455";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, pad.top);
+      ctx.lineTo(x, pad.top + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = "#be3455";
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#17211d";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(`${plainNumber(annualIncome)} ₪`, x, pad.top + plotH + 12);
+
+      ctx.fillStyle = "#66736d";
+      ctx.textAlign = "left";
+      ctx.fillText(`עד ${plainNumber(maxIncome)} ₪`, pad.left, pad.top + plotH + 12);
+    }
+
+    function render() {
+      const year = Number(els.year.value);
+      const annualIncome = parseIncome(els.income.value);
+      ensureRangeCanHold(annualIncome);
+      els.income.value = plainNumber(annualIncome);
+      els.range.value = Math.min(annualIncome, Number(els.range.max));
+
+      const result = calculateAll(annualIncome, year);
+      const totalRate = annualIncome > 0 ? result.total / annualIncome : 0;
+      const incomeTaxRate = annualIncome > 0 ? result.tax.total / annualIncome : 0;
+      const niRate = annualIncome > 0 ? result.ni.total / annualIncome : 0;
+      const netRate = annualIncome > 0 ? result.net / annualIncome : 0;
+
+      els.effectiveRate.textContent = percent(totalRate);
+      els.monthlyReserve.textContent = `${money(result.total / 12)} לחודש בממוצע`;
+      els.incomeTax.textContent = money(result.tax.total);
+      els.taxRate.textContent = `${percent(incomeTaxRate)} מהרווח`;
+      els.nationalInsurance.textContent = money(result.ni.total);
+      els.niRate.textContent = `${percent(niRate)} מהרווח`;
+      els.netIncome.textContent = money(result.net);
+      els.netRate.textContent = `${percent(netRate)} נשאר`;
+      els.taxTitleSource.innerHTML = incomeTaxSourceRef(year);
+      els.chartCaption.textContent = `${TAX_YEARS[year].note}; בסיס מס לאחר ניכוי: ${money(result.taxableIncome)}`;
+
+      renderTables(result);
+      renderChart(year, annualIncome);
+    }
+
+    function ensureRangeCanHold(value) {
+      const currentMax = Number(els.range.max);
+      if (value > currentMax) {
+        const nextMax = Math.ceil(value / 100000) * 100000;
+        els.range.max = String(nextMax);
+        els.rangeMax.textContent = `${plainNumber(nextMax)} ₪`;
+      }
+    }
+
+    function init() {
+      for (const year of Object.keys(TAX_YEARS).sort()) {
+        const option = document.createElement("option");
+        option.value = year;
+        option.textContent = year;
+        els.year.appendChild(option);
+      }
+      els.year.value = "2026";
+
+      els.year.addEventListener("change", render);
+      els.deductNi.addEventListener("change", render);
+      els.applyMinNi.addEventListener("change", render);
+
+      els.income.addEventListener("change", render);
+      els.income.addEventListener("blur", render);
+      els.income.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      });
+
+      els.range.addEventListener("input", () => {
+        els.income.value = plainNumber(Number(els.range.value));
+        render();
+      });
+
+      document.querySelectorAll("[data-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+          els.income.value = plainNumber(Number(button.dataset.preset));
+          render();
+        });
+      });
+
+      window.addEventListener("resize", render);
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>
