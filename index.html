@@ -242,6 +242,15 @@
       background: linear-gradient(180deg, var(--rose-soft), #fff 64%);
     }
 
+    .metric.tax-base {
+      background: linear-gradient(180deg, #eef2ff, #fff 64%);
+    }
+
+    .metric.tax-base strong,
+    .metric.tax-base span {
+      text-align: center;
+    }
+
     .metric.ni {
       background: linear-gradient(180deg, var(--amber-soft), #fff 64%);
     }
@@ -467,7 +476,7 @@
 
         <div class="field">
           <label for="creditPoints">נקודות זיכוי</label>
-          <input id="creditPoints" type="number" inputmode="decimal" min="0" step="0.25" value="0">
+          <input id="creditPoints" type="number" inputmode="decimal" min="0" step="0.25" value="2.25">
           <div id="creditPointsNote" class="input-note">לתושב ישראל יש לרוב 2.25 נקודות בסיס; הזינו את סך הנקודות הידוע לכם.</div>
         </div>
 
@@ -495,6 +504,11 @@
             <span>האחוז הממוצע לשים בצד</span>
             <strong id="effectiveRate">0%</strong>
             <span id="monthlyReserve">0 ₪ לחודש בממוצע</span>
+          </article>
+          <article class="metric tax-base">
+            <span>הכנסה חייבת במס <a class="source-ref" href="#source-ni-deduction">[1]</a></span>
+            <strong id="taxableIncome">0 ₪</strong>
+            <span id="taxBaseNote">ניכוי ביטוח לאומי: 0 ₪</span>
           </article>
           <article class="metric tax">
             <span>מס הכנסה שנתי</span>
@@ -727,6 +741,8 @@
       2026: 2904
     };
 
+    const DEFAULT_CREDIT_POINTS = 2.25;
+
     const els = {
       year: document.getElementById("year"),
       income: document.getElementById("income"),
@@ -740,6 +756,8 @@
       applyMinNi: document.getElementById("applyMinNi"),
       effectiveRate: document.getElementById("effectiveRate"),
       monthlyReserve: document.getElementById("monthlyReserve"),
+      taxableIncome: document.getElementById("taxableIncome"),
+      taxBaseNote: document.getElementById("taxBaseNote"),
       incomeTax: document.getElementById("incomeTax"),
       taxRate: document.getElementById("taxRate"),
       nationalInsurance: document.getElementById("nationalInsurance"),
@@ -1000,16 +1018,6 @@
 
     function renderTables(result) {
       els.taxRows.innerHTML = "";
-      if (result.deduction > 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>ניכוי 52% מדמי ביטוח לאומי ${sourceRef("source-ni-deduction", 1)}</td>
-          <td>בסיס מס: ${money(result.taxableIncome)}</td>
-          <td class="amount">-${money(result.deduction)}</td>
-        `;
-        els.taxRows.appendChild(tr);
-      }
-
       if (result.tax.rows.length === 0) {
         els.taxRows.innerHTML += `<tr><td colspan="3" class="empty">אין מס הכנסה ברווח 0 ₪.</td></tr>`;
       } else {
@@ -1171,6 +1179,12 @@
       els.creditPointsNote.textContent = `שווי נקודה בשנת ${year}: ${money(result.tax.creditPointValue)} לשנה; זיכוי מחושב: ${money(result.tax.creditAmount)}.`;
       els.effectiveRate.textContent = percent(totalRate);
       els.monthlyReserve.textContent = `${money(result.total / 12)} לחודש בממוצע`;
+      els.taxableIncome.textContent = money(result.taxableIncome);
+      els.taxBaseNote.textContent = result.deduction > 0
+        ? `ניכוי 52% מדמי ביטוח לאומי: -${money(result.deduction)}`
+        : els.deductNi.checked
+          ? "ניכוי 52% מדמי ביטוח לאומי: 0 ₪"
+          : "ניכוי 52% מדמי ביטוח לאומי לא הופעל";
       els.incomeTax.textContent = money(result.tax.total);
       els.taxRate.textContent = result.tax.creditAmount > 0
         ? `${percent(incomeTaxRate)} מהרווח; לפני זיכוי: ${money(result.tax.beforeCredits)}`
@@ -1220,6 +1234,8 @@
 
       if (creditPoints !== null) {
         els.creditPoints.value = parseCreditPoints(creditPoints);
+      } else {
+        els.creditPoints.value = DEFAULT_CREDIT_POINTS;
       }
 
       setBooleanFromParam(els.deductNi, params.get("deductNi"));
@@ -1236,9 +1252,7 @@
         url.searchParams.set("advances", els.advancesPaid.value.trim());
       }
       const creditPoints = parseCreditPoints(els.creditPoints.value);
-      if (creditPoints > 0) {
-        url.searchParams.set("creditPoints", String(creditPoints));
-      }
+      url.searchParams.set("creditPoints", String(creditPoints));
       url.searchParams.set("deductNi", els.deductNi.checked ? "1" : "0");
       url.searchParams.set("applyMinNi", els.applyMinNi.checked ? "1" : "0");
       return url;
