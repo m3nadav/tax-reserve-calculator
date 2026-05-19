@@ -465,6 +465,12 @@
           <div id="advancesStatus" class="input-note">אפשר להקליד סכום או חיבור של תשלומים, למשל 123+321.</div>
         </div>
 
+        <div class="field">
+          <label for="creditPoints">נקודות זיכוי</label>
+          <input id="creditPoints" type="number" inputmode="decimal" min="0" step="0.25" value="0">
+          <div id="creditPointsNote" class="input-note">לתושב ישראל יש לרוב 2.25 נקודות בסיס; הזינו את סך הנקודות הידוע לכם.</div>
+        </div>
+
         <label class="check-row">
           <input id="deductNi" type="checkbox">
           <span>להחיל ניכוי 52% מדמי הביטוח הלאומי בחישוב השנתי.<a class="source-ref" href="#source-ni-deduction">[1]</a></span>
@@ -476,8 +482,9 @@
         </label>
 
         <div class="notice">
-          החישוב מניח שהרווח מתפרס שווה בשווה על פני השנה. הוא לא כולל מע"מ, נקודות זיכוי,
+          החישוב מניח שהרווח מתפרס שווה בשווה על פני השנה. הוא לא כולל מע"מ,
           זיכויים לפנסיה/תרומות, הכנסות נוספות או הכנסות הוניות מיוחדות. מקדמות ששולמו מפחיתות רק את היתרה לתשלום.
+          נקודות הזיכוי מחושבות לפי המספר שהוזן ואינן קובעות זכאות.
           הכתובת מתעדכנת אוטומטית עם כל שינוי, כך שאפשר להעתיק אותה כדי לשתף את החישוב.
         </div>
       </section>
@@ -579,6 +586,13 @@
               <a class="source-note" href="#niRows">[5]</a>
               ביטוח לאומי: תקרות ושיעורים מתוך
               <a href="https://www.btl.gov.il/Mediniyut/GeneralData/rates_1954_2007/Hachnasa/Pages/ovedAtzmaii.aspx" target="_blank" rel="noreferrer">טבלת הכנסה מזערית ומרבית לעצמאי</a>.
+            </div>
+            <div id="source-tax-credits">
+              <a class="source-note" href="#creditPoints">[6]</a>
+              נקודות זיכוי: נקודת זיכוי היא סכום שמופחת ממס ההכנסה, עד לאיפוס המס. ערכי נקודת הזיכוי לשנים 2020-2026 לפי
+              <a href="https://www.kolzchut.org.il/he/נקודת_זיכוי" target="_blank" rel="noreferrer">כל-זכות</a>
+              ולשנת 2026 גם לפי
+              <a href="https://www.gov.il/BlobFolder/generalpage/income-tax-monthly-deductions-booklet/he/generalInformation_income-tax-monthly-deductions-booklet_monthly-deductions-booklet-2026.pdf" target="_blank" rel="noreferrer">לוח העזר של רשות המסים</a>.
             </div>
             <div>
               מס יסף מחושב כתוספת 3% על החלק שמעל סף מס היסף בכל שנה. ההכנסות כאן מטופלות כהכנסה מיגיעה אישית/עסק, לא כהכנסה הונית.
@@ -703,6 +717,16 @@
       2026: niYear(3442, 7703, 51910, [{ months: 12, nl: 0.0447, hl: 0.0323, nh: 0.1283, hh: 0.0517 }])
     };
 
+    const CREDIT_POINT_VALUES = {
+      2020: 2628,
+      2021: 2616,
+      2022: 2676,
+      2023: 2820,
+      2024: 2904,
+      2025: 2904,
+      2026: 2904
+    };
+
     const els = {
       year: document.getElementById("year"),
       income: document.getElementById("income"),
@@ -710,6 +734,8 @@
       rangeMax: document.getElementById("rangeMax"),
       advancesPaid: document.getElementById("advancesPaid"),
       advancesStatus: document.getElementById("advancesStatus"),
+      creditPoints: document.getElementById("creditPoints"),
+      creditPointsNote: document.getElementById("creditPointsNote"),
       deductNi: document.getElementById("deductNi"),
       applyMinNi: document.getElementById("applyMinNi"),
       effectiveRate: document.getElementById("effectiveRate"),
@@ -737,6 +763,10 @@
 
     const numberFormat = new Intl.NumberFormat("he-IL", {
       maximumFractionDigits: 0
+    });
+
+    const creditPointFormat = new Intl.NumberFormat("he-IL", {
+      maximumFractionDigits: 2
     });
 
     function niYear(minMonthly, lowCeilingMonthly, maxMonthly, periods) {
@@ -769,6 +799,10 @@
     function parseIncome(value) {
       const cleaned = String(value).replace(/[^\d.]/g, "");
       return Math.max(0, Number(cleaned) || 0);
+    }
+
+    function parseCreditPoints(value) {
+      return Math.max(0, Number(value) || 0);
     }
 
     function parsePaymentExpression(value) {
@@ -833,6 +867,24 @@
       }
 
       return { total: total + surtax, rows, surtax };
+    }
+
+    function applyTaxCredits(tax, creditPoints, year) {
+      const creditPointValue = CREDIT_POINT_VALUES[year] || 0;
+      const creditAmount = creditPoints * creditPointValue;
+      const creditUsed = Math.min(tax.total, creditAmount);
+
+      return {
+        beforeCredits: tax.total,
+        creditPoints,
+        creditPointValue,
+        creditAmount,
+        creditUsed,
+        unusedCredit: Math.max(0, creditAmount - creditUsed),
+        total: Math.max(0, tax.total - creditUsed),
+        rows: tax.rows,
+        surtax: tax.surtax
+      };
     }
 
     function solveNationalInsuranceBase(grossMonthly, yearData, period, applyDeduction) {
@@ -934,12 +986,12 @@
       };
     }
 
-    function calculateAll(annualIncome, year) {
+    function calculateAll(annualIncome, year, creditPoints = parseCreditPoints(els.creditPoints.value)) {
       const applyDeduction = els.deductNi.checked;
       const ni = calculateNationalInsurance(annualIncome, NI_YEARS[year], els.applyMinNi.checked, applyDeduction);
       const deduction = applyDeduction ? ni.national * 0.52 : 0;
       const taxableIncome = Math.max(0, annualIncome - deduction);
-      const tax = calculateProgressiveTax(taxableIncome, TAX_YEARS[year]);
+      const tax = applyTaxCredits(calculateProgressiveTax(taxableIncome, TAX_YEARS[year]), creditPoints, year);
       const total = tax.total + ni.total;
       const net = Math.max(0, annualIncome - total);
 
@@ -970,6 +1022,20 @@
           `;
           els.taxRows.appendChild(tr);
         }
+      }
+
+      if (result.tax.creditAmount > 0) {
+        const tr = document.createElement("tr");
+        const unused = result.tax.unusedCredit > 0
+          ? `; לא נוצל: ${money(result.tax.unusedCredit)}, כי המס התאפס`
+          : "";
+        const amount = result.tax.creditUsed > 0 ? `-${money(result.tax.creditUsed)}` : money(0);
+        tr.innerHTML = `
+          <td>נקודות זיכוי ${sourceRef("source-tax-credits", 6)}<br><small>${creditPointFormat.format(result.tax.creditPoints)} נק' × ${money(result.tax.creditPointValue)} לשנה${unused}</small></td>
+          <td>זיכוי ממס</td>
+          <td class="amount">${amount}</td>
+        `;
+        els.taxRows.appendChild(tr);
       }
 
       els.niRows.innerHTML = "";
@@ -1082,13 +1148,14 @@
       const year = Number(els.year.value);
       const annualIncome = parseIncome(els.income.value);
       const advances = parsePaymentExpression(els.advancesPaid.value);
+      const creditPoints = parseCreditPoints(els.creditPoints.value);
       ensureRangeCanHold(annualIncome);
       if (formatIncome) {
         els.income.value = plainNumber(annualIncome);
       }
       els.range.value = Math.min(annualIncome, Number(els.range.max));
 
-      const result = calculateAll(annualIncome, year);
+      const result = calculateAll(annualIncome, year, creditPoints);
       const paidSoFar = advances.error ? 0 : advances.total;
       const balanceDue = Math.max(0, result.total - paidSoFar);
       const overpaid = Math.max(0, paidSoFar - result.total);
@@ -1101,10 +1168,13 @@
         ? advances.error
         : `סך מקדמות שחושבו: ${money(paidSoFar)}`;
       els.advancesStatus.classList.toggle("error", Boolean(advances.error));
+      els.creditPointsNote.textContent = `שווי נקודה בשנת ${year}: ${money(result.tax.creditPointValue)} לשנה; זיכוי מחושב: ${money(result.tax.creditAmount)}.`;
       els.effectiveRate.textContent = percent(totalRate);
       els.monthlyReserve.textContent = `${money(result.total / 12)} לחודש בממוצע`;
       els.incomeTax.textContent = money(result.tax.total);
-      els.taxRate.textContent = `${percent(incomeTaxRate)} מהרווח`;
+      els.taxRate.textContent = result.tax.creditAmount > 0
+        ? `${percent(incomeTaxRate)} מהרווח; לפני זיכוי: ${money(result.tax.beforeCredits)}`
+        : `${percent(incomeTaxRate)} מהרווח`;
       els.nationalInsurance.textContent = money(result.ni.total);
       els.niRate.textContent = `${percent(niRate)} מהרווח`;
       els.netIncome.textContent = money(result.net);
@@ -1134,6 +1204,7 @@
       const year = params.get("year");
       const income = params.get("income");
       const advances = params.get("advances");
+      const creditPoints = params.get("creditPoints");
 
       if (year && TAX_YEARS[year]) {
         els.year.value = year;
@@ -1145,6 +1216,10 @@
 
       if (advances !== null) {
         els.advancesPaid.value = advances;
+      }
+
+      if (creditPoints !== null) {
+        els.creditPoints.value = parseCreditPoints(creditPoints);
       }
 
       setBooleanFromParam(els.deductNi, params.get("deductNi"));
@@ -1159,6 +1234,10 @@
       url.searchParams.set("income", String(parseIncome(els.income.value)));
       if (els.advancesPaid.value.trim()) {
         url.searchParams.set("advances", els.advancesPaid.value.trim());
+      }
+      const creditPoints = parseCreditPoints(els.creditPoints.value);
+      if (creditPoints > 0) {
+        url.searchParams.set("creditPoints", String(creditPoints));
       }
       url.searchParams.set("deductNi", els.deductNi.checked ? "1" : "0");
       url.searchParams.set("applyMinNi", els.applyMinNi.checked ? "1" : "0");
@@ -1199,6 +1278,7 @@
       els.deductNi.addEventListener("change", render);
       els.applyMinNi.addEventListener("change", render);
       els.advancesPaid.addEventListener("input", render);
+      els.creditPoints.addEventListener("input", render);
 
       els.income.addEventListener("input", () => render({ formatIncome: false }));
       els.income.addEventListener("change", render);
