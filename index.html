@@ -467,7 +467,7 @@
 
         <label class="check-row">
           <input id="deductNi" type="checkbox">
-          <span>להפחית 52% מדמי הביטוח הלאומי כהוצאה בחישוב מס הכנסה.<a class="source-ref" href="#source-ni-deduction">[1]</a></span>
+          <span>להחיל ניכוי 52% מדמי הביטוח הלאומי בחישוב השנתי.<a class="source-ref" href="#source-ni-deduction">[1]</a></span>
         </label>
 
         <label class="check-row">
@@ -554,7 +554,7 @@
           <div class="sources">
             <div id="source-ni-deduction">
               <a class="source-note" href="#deductNi">[1]</a>
-              ניכוי 52%: לפי ביטוח לאומי, בחישוב הכנסה לעצמאי מופחתים 52% מסכום דמי הביטוח הלאומי שחייב המבוטח, לא כולל דמי ביטוח בריאות; ראו
+              ניכוי 52%: לפי ביטוח לאומי, בחישוב הכנסה לעצמאי מופחתים 52% מסכום דמי הביטוח הלאומי שחייב המבוטח, לא כולל דמי ביטוח בריאות. הנוסחה הרשמית משקללת את ההפחתה לפני חישוב דמי הביטוח; ראו
               <a href="https://www.btl.gov.il/insurance/national%20insurance/type_list/self_employed/pages/hishov.dmey.bituach.aspx" target="_blank" rel="noreferrer">דוגמה לחישוב דמי ביטוח לעובד עצמאי</a>.
             </div>
             <div id="source-tax-history">
@@ -835,46 +835,80 @@
       return { total: total + surtax, rows, surtax };
     }
 
-    function calculateNationalInsurance(annualIncome, yearData, applyMinimum) {
+    function solveNationalInsuranceBase(grossMonthly, yearData, period, applyDeduction) {
+      const baseBeforeDeduction = Math.max(0, grossMonthly);
+      if (!applyDeduction || baseBeforeDeduction === 0) {
+        return {
+          monthlyBase: Math.min(baseBeforeDeduction, yearData.maxMonthly),
+          monthlyBaseBeforeCap: baseBeforeDeduction
+        };
+      }
+
+      const deductionShare = 0.52;
+      const lowCeiling = yearData.lowCeilingMonthly;
+      const lowGrossThreshold = lowCeiling * (1 + deductionShare * period.nl);
+      const adjustedMonthly = baseBeforeDeduction <= lowGrossThreshold
+        ? baseBeforeDeduction / (1 + deductionShare * period.nl)
+        : (baseBeforeDeduction + lowCeiling * deductionShare * (period.nh - period.nl)) / (1 + deductionShare * period.nh);
+
+      return {
+        monthlyBase: Math.min(adjustedMonthly, yearData.maxMonthly),
+        monthlyBaseBeforeCap: adjustedMonthly
+      };
+    }
+
+    function calculateNationalInsurance(annualIncome, yearData, applyMinimum, applyDeduction) {
       const monthlyProfit = annualIncome / 12;
-      const monthlyBase = applyMinimum && annualIncome > 0
+      const grossMonthlyBase = applyMinimum && annualIncome > 0
         ? Math.max(monthlyProfit, yearData.minMonthly)
         : monthlyProfit;
 
       let national = 0;
       let health = 0;
+      let aboveCapAnnual = 0;
       const rows = [];
 
       for (const period of yearData.periods) {
-        const cappedMonthly = Math.min(monthlyBase, yearData.maxMonthly);
+        const basis = solveNationalInsuranceBase(grossMonthlyBase, yearData, period, applyDeduction);
+        const cappedMonthly = basis.monthlyBase;
         const lowBase = Math.min(cappedMonthly, yearData.lowCeilingMonthly);
         const highBase = Math.max(0, cappedMonthly - yearData.lowCeilingMonthly);
         const periodNational = period.months * (lowBase * period.nl + highBase * period.nh);
         const periodHealth = period.months * (lowBase * period.hl + highBase * period.hh);
         national += periodNational;
         health += periodHealth;
+        aboveCapAnnual += Math.max(0, basis.monthlyBaseBeforeCap - yearData.maxMonthly) * period.months;
+
+        if (applyDeduction && grossMonthlyBase > 0) {
+          rows.push({
+            label: period.months === 12 ? "בסיס ביטוח לאומי אחרי ניכוי 52%" : "בסיס ביטוח לאומי אחרי ניכוי 52% (" + period.months + " חודשים)",
+            base: plainNumber(grossMonthlyBase) + " ₪ לפני ניכוי, " + plainNumber(cappedMonthly) + " ₪ בסיס לתשלום",
+            amount: 0,
+            sourceId: "source-ni-deduction",
+            sourceNumber: 1
+          });
+        }
 
         rows.push({
-          label: period.months === 12 ? "דמי ביטוח לאומי" : `דמי ביטוח לאומי (${period.months} חודשים)`,
-          base: `${plainNumber(lowBase)} ₪ בשיעור מופחת, ${plainNumber(highBase)} ₪ בשיעור רגיל`,
+          label: period.months === 12 ? "דמי ביטוח לאומי" : "דמי ביטוח לאומי (" + period.months + " חודשים)",
+          base: plainNumber(lowBase) + " ₪ בשיעור מופחת, " + plainNumber(highBase) + " ₪ בשיעור רגיל",
           amount: periodNational,
           sourceId: "source-ni-rates",
           sourceNumber: 4
         });
         rows.push({
-          label: period.months === 12 ? "דמי ביטוח בריאות" : `דמי ביטוח בריאות (${period.months} חודשים)`,
-          base: `${plainNumber(lowBase)} ₪ בשיעור מופחת, ${plainNumber(highBase)} ₪ בשיעור רגיל`,
+          label: period.months === 12 ? "דמי ביטוח בריאות" : "דמי ביטוח בריאות (" + period.months + " חודשים)",
+          base: plainNumber(lowBase) + " ₪ בשיעור מופחת, " + plainNumber(highBase) + " ₪ בשיעור רגיל",
           amount: periodHealth,
           sourceId: "source-ni-rates",
           sourceNumber: 4
         });
       }
 
-      if (monthlyProfit > yearData.maxMonthly) {
-        const exemptAnnual = (monthlyProfit - yearData.maxMonthly) * 12;
+      if (aboveCapAnnual > 0) {
         rows.push({
           label: "מעל תקרת ביטוח לאומי",
-          base: `${plainNumber(exemptAnnual)} ₪ לשנה`,
+          base: plainNumber(aboveCapAnnual) + " ₪ לשנה",
           amount: 0,
           sourceId: "source-ni-thresholds",
           sourceNumber: 5
@@ -884,7 +918,7 @@
       if (applyMinimum && annualIncome > 0 && monthlyProfit < yearData.minMonthly) {
         rows.push({
           label: "התאמה להכנסה מזערית",
-          base: `${plainNumber(yearData.minMonthly)} ₪ לחודש`,
+          base: plainNumber(yearData.minMonthly) + " ₪ לחודש",
           amount: 0,
           sourceId: "source-ni-thresholds",
           sourceNumber: 5
@@ -896,13 +930,14 @@
         health,
         total: national + health,
         rows,
-        monthlyBase
+        monthlyBase: grossMonthlyBase
       };
     }
 
     function calculateAll(annualIncome, year) {
-      const ni = calculateNationalInsurance(annualIncome, NI_YEARS[year], els.applyMinNi.checked);
-      const deduction = els.deductNi.checked ? ni.national * 0.52 : 0;
+      const applyDeduction = els.deductNi.checked;
+      const ni = calculateNationalInsurance(annualIncome, NI_YEARS[year], els.applyMinNi.checked, applyDeduction);
+      const deduction = applyDeduction ? ni.national * 0.52 : 0;
       const taxableIncome = Math.max(0, annualIncome - deduction);
       const tax = calculateProgressiveTax(taxableIncome, TAX_YEARS[year]);
       const total = tax.total + ni.total;
@@ -916,7 +951,7 @@
       if (result.deduction > 0) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>הפחתה למס הכנסה: 52% מדמי ביטוח לאומי ${sourceRef("source-ni-deduction", 1)}</td>
+          <td>ניכוי 52% מדמי ביטוח לאומי ${sourceRef("source-ni-deduction", 1)}</td>
           <td>בסיס מס: ${money(result.taxableIncome)}</td>
           <td class="amount">-${money(result.deduction)}</td>
         `;
@@ -1079,7 +1114,8 @@
         ? `שולם עד עכשיו: ${money(paidSoFar)}; עודף אפשרי: ${money(overpaid)}`
         : `שולם עד עכשיו: ${money(paidSoFar)}`;
       els.taxTitleSource.innerHTML = incomeTaxSourceRef(year);
-      els.chartCaption.textContent = `${TAX_YEARS[year].note}; בסיס מס לאחר ניכוי: ${money(result.taxableIncome)}`;
+      const taxBaseLabel = result.deduction > 0 ? "בסיס מס לאחר ניכוי 52%" : "בסיס מס";
+      els.chartCaption.textContent = `${TAX_YEARS[year].note}; ${taxBaseLabel}: ${money(result.taxableIncome)}`;
 
       renderTables(result);
       renderChart(year, annualIncome);
